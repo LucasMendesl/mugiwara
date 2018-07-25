@@ -1,12 +1,14 @@
-/* TODO: fix duplicated code in paginate/search methods */
+/* TODO: fix duplicated code in paginate/search methods 
+   TODO: implement of/from operator to convert an simple array to sequence of observables 
+*/
 
 import axios from 'axios';
-import { range } from 'rxjs';
 import { load } from 'cheerio';
 import { stringify } from 'qs';
+import { range, from } from 'rxjs';
 import { fromPromise } from 'rxjs/observable/fromPromise';
 import { 
-    map, 
+    map,
     flatMap,
     concatMap
 } from 'rxjs/operators';
@@ -21,9 +23,9 @@ const getContent = (res, selector) =>
     load(res.data)(selector);
 
 const getLinks = (res, selector) =>
-    getContent(res, selector)
-        .map((_, el) => el.attribs['href'])
-        .toArray();
+   from(getContent(res, selector)
+            .map((_, el) => el.attribs['href'])
+            .toArray());
 
 const paginate = (res, term) => 
     range(1, (parseInt(
@@ -54,7 +56,7 @@ const paginate = (res, term) =>
                     busca: term 
                 })
             })), 
-            map(x => getLinks(x, '.serie-block'))
+            flatMap(x => getLinks(x, '.serie-block'))
         );
 
 const fetchEpisodes = animeUrl => 
@@ -62,7 +64,7 @@ const fetchEpisodes = animeUrl =>
         url: `${BASE_URL}${animeUrl}`,
         method: 'GET'
     })
-    .pipe(map(x => getLinks(x, '.serie-pagina-listagem-videos > div > a')));
+    .pipe(flatMap(x => getLinks(x, '.serie-pagina-listagem-videos > div > a')));
         
 const search = (searchTerm, page) => 
     request({
