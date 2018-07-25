@@ -4,22 +4,30 @@ import axios from 'axios';
 import { range } from 'rxjs';
 import { load } from 'cheerio';
 import { stringify } from 'qs';
-import { map, concatMap, flatMap } from 'rxjs/operators';
 import { fromPromise } from 'rxjs/observable/fromPromise';
+import { 
+    map, 
+    flatMap,
+    concatMap
+} from 'rxjs/operators';
 
 const BASE_URL = 'https://animesproject.com';
+const MAX_CONCURRENT_DOWNLOADS = 4;
 
 const request = config => 
     fromPromise(axios(config));
 
-const getLinks = res =>
-    load(res.data)('.serie-block')
+const getContent = (res, selector) =>
+    load(res.data)(selector);
+
+const getLinks = (res, selector) =>
+    getContent(res, selector)
         .map((_, el) => el.attribs['href'])
         .toArray();
 
 const paginate = (res, term) => 
     range(1, (parseInt(
-                load(res.data)('.paginacao-container > ul > li a')
+                getContent(res, '.paginacao-container > ul > li a')
                     .last()
                     .attr('href')
         )))
@@ -46,8 +54,15 @@ const paginate = (res, term) =>
                     busca: term 
                 })
             })), 
-            map(getLinks)
+            map(x => getLinks(x, '.serie-block'))
         );
+
+const fetchEpisodes = animeUrl => 
+    request({
+        url: `${BASE_URL}${animeUrl}`,
+        method: 'GET'
+    })
+    .pipe(map(x => getLinks(x, '.serie-pagina-listagem-videos > div > a')));
         
 const search = (searchTerm, page) => 
     request({
@@ -74,4 +89,4 @@ const search = (searchTerm, page) =>
     })
     .pipe(flatMap(fm => paginate(fm, searchTerm)));
 
-search().subscribe(console.log);
+search().pipe(flatMap(fetchEpisodes)).subscribe(console.log);

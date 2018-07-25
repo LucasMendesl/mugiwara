@@ -4,11 +4,12 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "start": "babel-node src/index.js"    
+    "start": "babel-node src/index.js"
   },
   "dependencies": {
     "axios": "^0.18.0",
     "cheerio": "^1.0.0-rc.2",
+    "cwait": "^1.1.1",
     "qs": "^6.5.2",
     "rxjs": "^6.2.2",
     "rxjs-compat": "^6.2.2"
