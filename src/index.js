@@ -7,6 +7,7 @@ import { fromPromise } from 'rxjs/observable/fromPromise';
 import { 
     map,
     flatMap,
+    distinct,
     concatMap
 } from 'rxjs/operators';
 
@@ -127,6 +128,7 @@ const search = (searchTerm, page) =>
 search('One Piece')
     .pipe(
         flatMap(fetchEpisodes),
-        concatMap(extractVideoUrls)
+        concatMap(extractVideoUrls),
+        distinct()
     )
     .subscribe(console.log);
