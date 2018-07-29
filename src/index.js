@@ -1,11 +1,8 @@
-/* TODO: fix duplicated code in paginate/search methods 
-   TODO: implement of/from operator to convert an simple array to sequence of observables 
-*/
-
+/* TODO: fix duplicated code in paginate/search methods */
 import axios from 'axios';
 import { load } from 'cheerio';
 import { stringify } from 'qs';
-import { range, from } from 'rxjs';
+import { range, from, empty } from 'rxjs';
 import { fromPromise } from 'rxjs/observable/fromPromise';
 import { 
     map,
@@ -14,7 +11,6 @@ import {
 } from 'rxjs/operators';
 
 const BASE_URL = 'https://animesproject.com';
-const MAX_CONCURRENT_DOWNLOADS = 4;
 
 const request = config => 
     fromPromise(axios(config));
@@ -59,13 +55,50 @@ const paginate = (res, term) =>
             flatMap(x => getLinks(x, '.serie-block'))
         );
 
+const fetchVideosLinks = videoUrl => 
+    request({
+        url: `${BASE_URL}${videoUrl}`,
+        method: 'GET'
+    })
+    .pipe(map(x => getContent(x, '#player_frame').attr('src')));
+
 const fetchEpisodes = animeUrl => 
     request({
         url: `${BASE_URL}${animeUrl}`,
         method: 'GET'
     })
-    .pipe(flatMap(x => getLinks(x, '.serie-pagina-listagem-videos > div > a')));
-        
+    .pipe(
+        flatMap(x => getLinks(x, '.serie-pagina-listagem-videos > div > a')),
+        concatMap(fetchVideosLinks)         
+    );
+
+const extractVideoUrls = iframeVideoUrl =>
+    request({
+        url: `${BASE_URL}${iframeVideoUrl}`,
+        method: 'GET'
+    })
+    .pipe(
+        map(getScriptSourceContent), 
+        flatMap(extractDownloadUrl)
+    );
+
+const getScriptSourceContent = res => 
+    getContent(res, 'body > script')
+        .map((_, x) => x.children[0])
+        .filter((_, x) => x && x.data.match(/ZLXSources/)).get(0);
+
+const extractDownloadUrl = scriptSource => {
+    if (!scriptSource) return empty();
+    const source = /(?:'src':)(.*?)(?:,)/g.exec(scriptSource.data); 
+
+    //TODO: separate video url per quality (mq/hd)
+    return source === null ? empty()
+        : from(source.map(x => x.replace(/'/g, "")
+                               .replace(',', '')
+                               .replace('src:', '')
+                               .trim()))
+}
+            
 const search = (searchTerm, page) => 
     request({
         url: `${BASE_URL}/listar-series/`,
@@ -91,4 +124,9 @@ const search = (searchTerm, page) =>
     })
     .pipe(flatMap(fm => paginate(fm, searchTerm)));
 
-search().pipe(flatMap(fetchEpisodes)).subscribe(console.log);
+search('One Piece')
+    .pipe(
+        flatMap(fetchEpisodes),
+        concatMap(extractVideoUrls)
+    )
+    .subscribe(console.log);
