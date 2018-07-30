@@ -1,20 +1,8 @@
 /* TODO: fix duplicated code in paginate/search methods */
-import axios from 'axios';
 import { load } from 'cheerio';
-import { stringify } from 'qs';
 import { range, from, empty } from 'rxjs';
-import { fromPromise } from 'rxjs/observable/fromPromise';
-import { 
-    map,
-    flatMap,
-    distinct,
-    concatMap
-} from 'rxjs/operators';
-
-const BASE_URL = 'https://animesproject.com';
-
-const request = config => 
-    fromPromise(axios(config));
+import { map, flatMap, distinct, concatMap } from 'rxjs/operators';
+import { getAnimesProject, postAnimesProject } from './common/requests';
 
 const getContent = (res, selector) =>
     load(res.data)(selector);
@@ -24,64 +12,41 @@ const getLinks = (res, selector) =>
             .map((_, el) => el.attribs['href'])
             .toArray());
 
+const getLastPage = res =>
+    parseInt(getContent(res, '.paginacao-container > ul > li a')
+                .last()
+                .attr('href'));
+
 const paginate = (res, term) => 
-    range(1, (parseInt(
-                getContent(res, '.paginacao-container > ul > li a')
-                    .last()
-                    .attr('href')
-        )))
+    range(1, getLastPage(res))
         .pipe(
-            concatMap(page => request({
-                url: `${BASE_URL}/listar-series/`,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                withCredentials: true,
-                data: stringify({
-                    categoria: 9,
-                    letra: '[a-z]',
-                    qnt: 25,
-                    tipos: 'Episódio|Filme|Extra',
-                    status: 'Em andamento|Pausado|Concluído',
-                    inicioMin: 1950,
-                    inicioMax: 2018,
-                    notaMin: 0.00,
-                    notaMax: 10.00,
+            concatMap(page => postAnimesProject({
+                urlPath: `/listar-series/`,
+                data: {
                     pagina: page,
                     busca: term 
-                })
+                }
             })), 
             flatMap(x => getLinks(x, '.serie-block'))
         );
 
 const fetchVideosLinks = videoUrl => 
-    request({
-        url: `${BASE_URL}${videoUrl}`,
-        method: 'GET'
-    })
-    .pipe(map(x => getContent(x, '#player_frame').attr('src')));
+    getAnimesProject(videoUrl)
+        .pipe(map(x => getContent(x, '#player_frame').attr('src')));
 
 const fetchEpisodes = animeUrl => 
-    request({
-        url: `${BASE_URL}${animeUrl}`,
-        method: 'GET'
-    })
-    .pipe(
-        flatMap(x => getLinks(x, '.serie-pagina-listagem-videos > div > a')),
-        concatMap(fetchVideosLinks)         
-    );
+    getAnimesProject(animeUrl)
+        .pipe(
+            flatMap(x => getLinks(x, '.serie-pagina-listagem-videos > div > a')),
+            concatMap(fetchVideosLinks)         
+        );
 
 const extractVideoUrls = iframeVideoUrl =>
-    request({
-        url: `${BASE_URL}${iframeVideoUrl}`,
-        method: 'GET'
-    })
-    .pipe(
-        map(getScriptSourceContent), 
-        flatMap(extractDownloadUrl)
-    );
+    getAnimesProject(iframeVideoUrl)
+        .pipe(
+            map(getScriptSourceContent), 
+            flatMap(extractDownloadUrl)
+        );
 
 const getScriptSourceContent = res => 
     getContent(res, 'body > script')
@@ -101,27 +66,12 @@ const extractDownloadUrl = scriptSource => {
 }
             
 const search = (searchTerm, page) => 
-    request({
-        url: `${BASE_URL}/listar-series/`,
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        withCredentials: true,
-        data: stringify({
-            categoria: 9,
-            letra: '[a-z]',
-            qnt: 25,
-            tipos: 'Episódio|Filme|Extra',
-            status: 'Em andamento|Pausado|Concluído',
-            inicioMin: 1950,
-            inicioMax: 2018,
-            notaMin: 0.00,
-            notaMax: 10.00,
+    postAnimesProject({
+        urlPath: `/listar-series/`,
+        data: {
             pagina: page || 1,
             busca: searchTerm || '' 
-        })
+        }
     })
     .pipe(flatMap(fm => paginate(fm, searchTerm)));
 
