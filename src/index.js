@@ -73,3 +73,12 @@ export const search = (searchTerm = '') =>
         flatMap(res => range(1, getLastPage(res))),
         concatMap(page => paginate(searchTerm, page))
     );
+    search("Dragon ball")
+ .pipe(
+   flatMap(fetchEpisodes),
+   concatMap(extractVideoUrls)
+ )
+ .subscribe(x => {
+   console.log(x);
+
+ });
