@@ -1,10 +1,10 @@
 version: '3'
 services:
-  web:
+  mugiwara:
     build: .
     volumes:
-      - .:/usr/app/
-      - /usr/app/node_modules
+      - .:/src/
+      - /node_modules/
     tty: true
     stdin_open: true
     read_only: false
