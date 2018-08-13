@@ -4,8 +4,8 @@ import { fromPromise } from 'rxjs/observable/fromPromise';
 
 const NOW = new Date();
 
-const CONCURRENT_REQUESTS_THRESHOLD = 4;
-const BASE_URL = 'https://animesproject.com';
+const CONCURRENT_REQUESTS_THRESHOLD = 10;
+const BASE_URL = 'https://aniteca.com';
 
 const AXIOS_REQUEST_COMMON_CONFIG = {
     withCredentials: true,
@@ -27,10 +27,10 @@ const transformPostData = data =>
         notaMax: 10.00    
     }, data));
 
-export const getAnimesProject = (urlPath, config = {}) =>
+const getAnimesProject = (urlPath, config = {}) =>
     fromPromise(get(`${BASE_URL}${urlPath}`, Object.assign({}, AXIOS_REQUEST_COMMON_CONFIG, config)));
 
-export const postAnimesProject = ({ urlPath, data }) => 
+const postAnimesProject = ({ urlPath, data }) => 
     fromPromise(post(`${BASE_URL}${urlPath}`, transformPostData(data), 
         Object.assign({}, AXIOS_REQUEST_COMMON_CONFIG, {
             headers: {
@@ -39,3 +39,9 @@ export const postAnimesProject = ({ urlPath, data }) =>
             }    
         }),
     ));
+
+export {
+    getAnimesProject,
+    postAnimesProject,
+    CONCURRENT_REQUESTS_THRESHOLD   
+};
